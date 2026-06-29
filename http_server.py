@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import io
+import base64
+import hashlib
+import json
 import os
 import tempfile
 import traceback
@@ -14,6 +17,7 @@ os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 import numpy as np
 import soundfile as sf
 import torch
+from cachetools import TTLCache
 from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 
@@ -44,6 +48,12 @@ def _dtype() -> torch.dtype:
 MODEL = OmniVoice.from_pretrained(MODEL_ID, device_map=DEVICE, dtype=_dtype())
 MODEL_LOCK = Lock()
 QUEUE = Semaphore(int(os.environ.get("OMNIVOICE_WORKER_BACKLOG", "1")))
+PROMPT_CACHE = TTLCache(
+    maxsize=int(os.environ.get("OMNIVOICE_PROMPT_CACHE_SIZE", "8")),
+    ttl=int(os.environ.get("OMNIVOICE_PROMPT_CACHE_TTL", "86400")),
+)
+PROMPT_CACHE_HITS = 0
+PROMPT_CACHE_MISSES = 0
 
 
 def _bool(value: str | None, default: bool) -> bool:
@@ -84,6 +94,33 @@ def _write_wav(audio: np.ndarray) -> io.BytesIO:
     return buf
 
 
+def _wav_base64(audio: np.ndarray) -> str:
+    return base64.b64encode(_write_wav(audio).getvalue()).decode("ascii")
+
+
+def _file_sha256(path: str) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as file:
+        for chunk in iter(lambda: file.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _voice_clone_prompt(ref_audio: str, ref_text: str | None):
+    global PROMPT_CACHE_HITS, PROMPT_CACHE_MISSES
+
+    key = (_file_sha256(ref_audio), ref_text or "")
+    prompt = PROMPT_CACHE.get(key)
+    if prompt is not None:
+        PROMPT_CACHE_HITS += 1
+        return prompt
+
+    PROMPT_CACHE_MISSES += 1
+    prompt = MODEL.create_voice_clone_prompt(ref_audio=ref_audio, ref_text=ref_text)
+    PROMPT_CACHE[key] = prompt
+    return prompt
+
+
 async def _save_upload(upload: UploadFile | None) -> str | None:
     if upload is None:
         return None
@@ -103,7 +140,18 @@ def _remove(path: str | None) -> None:
 
 @app.get("/health")
 async def health():
-    return {"ok": True, "model": MODEL_ID, "device": DEVICE}
+    return {
+        "ok": True,
+        "model": MODEL_ID,
+        "device": DEVICE,
+        "prompt_cache": {
+            "size": len(PROMPT_CACHE),
+            "maxsize": PROMPT_CACHE.maxsize,
+            "ttl": PROMPT_CACHE.ttl,
+            "hits": PROMPT_CACHE_HITS,
+            "misses": PROMPT_CACHE_MISSES,
+        },
+    }
 
 
 @app.exception_handler(Exception)
@@ -158,12 +206,21 @@ async def synthesize(
         "class_temperature":     _float_value(class_temperature, _env_float("OMNIVOICE_CLASS_TEMPERATURE", 0.0)),
     }
 
+    ref_audio_for_prompt = None
+    ref_text_for_prompt = None
     if kwargs["ref_audio"]:
+        ref_audio_for_prompt = kwargs.pop("ref_audio")
+        ref_text_for_prompt = kwargs.pop("ref_text")
         kwargs["instruct"] = None
 
     try:
         QUEUE.acquire()
         with MODEL_LOCK, torch.inference_mode():
+            if ref_audio_for_prompt:
+                kwargs["voice_clone_prompt"] = _voice_clone_prompt(
+                    ref_audio_for_prompt,
+                    ref_text_for_prompt,
+                )
             audios = MODEL.generate(**kwargs)
         wav = _write_wav(audios[0])
         return StreamingResponse(
@@ -171,6 +228,80 @@ async def synthesize(
             media_type="audio/wav",
             headers={"Content-Disposition": 'attachment; filename="output.wav"'},
         )
+    finally:
+        QUEUE.release()
+        _remove(upload_path)
+
+
+@app.post("/synthesize_batch")
+async def synthesize_batch(
+    items: str = Form(...),
+    language: str = Form("en"),
+    audio: UploadFile | None = File(None),
+    ref_text: str | None = Form(None),
+    instruct: str | None = Form(None),
+    num_step: str | None = Form(None),
+    guidance_scale: str | None = Form(None),
+    speed: str | None = Form(None),
+    duration: str | None = Form(None),
+    t_shift: str | None = Form(None),
+    denoise: str | None = Form(None),
+    postprocess_output: str | None = Form(None),
+    layer_penalty_factor: str | None = Form(None),
+    position_temperature: str | None = Form(None),
+    class_temperature: str | None = Form(None),
+):
+    try:
+        parsed_items = json.loads(items)
+    except json.JSONDecodeError as exc:
+        return JSONResponse({"error": f"Invalid items JSON: {exc}"}, status_code=400)
+
+    if not isinstance(parsed_items, list) or not parsed_items:
+        return JSONResponse({"error": "items must be a non-empty array"}, status_code=400)
+
+    texts = []
+    languages = []
+    for idx, item in enumerate(parsed_items):
+        text = str(item.get("text", "")).strip() if isinstance(item, dict) else ""
+        if not text:
+            return JSONResponse({"error": f"Missing text for item {idx}"}, status_code=400)
+        texts.append(text)
+        item_language = item.get("language") if isinstance(item, dict) else None
+        languages.append(_string_value(item_language, _string_value(language)))
+
+    upload_path = await _save_upload(audio)
+    ref_audio = upload_path or _string_value(os.environ.get("OMNIVOICE_REF_AUDIO"))
+    if ref_audio and not os.path.exists(ref_audio):
+        _remove(upload_path)
+        return JSONResponse({"error": f"Reference audio not found: {ref_audio}"}, status_code=400)
+
+    kwargs: dict[str, Any] = {
+        "text":                  texts,
+        "language":              languages,
+        "instruct":              _string_value(instruct, os.environ.get("OMNIVOICE_INSTRUCT")),
+        "num_step":              _int_value(num_step, _env_int("OMNIVOICE_NUM_STEP", 32)),
+        "guidance_scale":        _float_value(guidance_scale, _env_float("OMNIVOICE_GUIDANCE_SCALE", 2.0)),
+        "speed":                 _float_value(speed, _env_float("OMNIVOICE_SPEED", 0.92)),
+        "duration":              _float_value(duration, _env_float("OMNIVOICE_DURATION", None)),
+        "t_shift":               _float_value(t_shift, _env_float("OMNIVOICE_T_SHIFT", 0.1)),
+        "denoise":               _bool(denoise, _env_bool("OMNIVOICE_DENOISE", True)),
+        "postprocess_output":    _bool(postprocess_output, _env_bool("OMNIVOICE_POSTPROCESS_OUTPUT", True)),
+        "layer_penalty_factor":  _float_value(layer_penalty_factor, _env_float("OMNIVOICE_LAYER_PENALTY_FACTOR", 5.0)),
+        "position_temperature":  _float_value(position_temperature, _env_float("OMNIVOICE_POSITION_TEMPERATURE", 5.0)),
+        "class_temperature":     _float_value(class_temperature, _env_float("OMNIVOICE_CLASS_TEMPERATURE", 0.0)),
+    }
+
+    try:
+        QUEUE.acquire()
+        with MODEL_LOCK, torch.inference_mode():
+            if ref_audio:
+                kwargs["voice_clone_prompt"] = _voice_clone_prompt(
+                    ref_audio,
+                    _string_value(ref_text, os.environ.get("OMNIVOICE_REF_TEXT")),
+                )
+                kwargs["instruct"] = None
+            audios = MODEL.generate(**kwargs)
+        return JSONResponse({"items": [{"audio": _wav_base64(audio)} for audio in audios]})
     finally:
         QUEUE.release()
         _remove(upload_path)
