@@ -56,18 +56,8 @@ PROMPT_CACHE_HITS = 0
 PROMPT_CACHE_MISSES = 0
 
 
-def _bool(value: str | None, default: bool) -> bool:
-    if value is None or value == "":
-        return default
+def _bool(value: str) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _int_value(value: str | None, default: int) -> int:
-    return default if value is None or value == "" else int(value)
-
-
-def _float_value(value: str | None, default: float | None) -> float | None:
-    return default if value is None or value == "" else float(value)
 
 
 def _string_value(value: str | None, default: str | None = None) -> str | None:
@@ -75,16 +65,40 @@ def _string_value(value: str | None, default: str | None = None) -> str | None:
     return value if value else default
 
 
-def _env_float(name: str, default: float | None) -> float | None:
-    return _float_value(os.environ.get(name), default)
-
-
-def _env_int(name: str, default: int) -> int:
-    return _int_value(os.environ.get(name), default)
-
-
-def _env_bool(name: str, default: bool) -> bool:
-    return _bool(os.environ.get(name), default)
+def _generation_options(
+    num_step: str | None,
+    guidance_scale: str | None,
+    speed: str | None,
+    duration: str | None,
+    t_shift: str | None,
+    denoise: str | None,
+    postprocess_output: str | None,
+    layer_penalty_factor: str | None,
+    position_temperature: str | None,
+    class_temperature: str | None,
+) -> dict[str, Any]:
+    options = {}
+    values = {
+        "num_step": num_step,
+        "guidance_scale": guidance_scale,
+        "speed": speed,
+        "duration": duration,
+        "t_shift": t_shift,
+        "denoise": denoise,
+        "postprocess_output": postprocess_output,
+        "layer_penalty_factor": layer_penalty_factor,
+        "position_temperature": position_temperature,
+        "class_temperature": class_temperature,
+    }
+    converters = {
+        "num_step": int,
+        "denoise": _bool,
+        "postprocess_output": _bool,
+    }
+    for name, value in values.items():
+        if value is not None and value.strip():
+            options[name] = converters.get(name, float)(value)
+    return options
 
 
 def _write_wav(audio: np.ndarray) -> io.BytesIO:
@@ -157,7 +171,9 @@ async def health():
 @app.exception_handler(Exception)
 async def _exception_handler(_request: Request, exc: Exception):
     if DEBUG_MODE:
-        return JSONResponse({"error": str(exc), "traceback": traceback.format_exc()}, status_code=500)
+        return JSONResponse(
+            {"error": str(exc), "traceback": traceback.format_exc()}, status_code=500
+        )
     return JSONResponse({"error": str(exc)}, status_code=500)
 
 
@@ -186,25 +202,31 @@ async def synthesize(
     ref_audio = upload_path or _string_value(os.environ.get("OMNIVOICE_REF_AUDIO"))
     if ref_audio and not os.path.exists(ref_audio):
         _remove(upload_path)
-        return JSONResponse({"error": f"Reference audio not found: {ref_audio}"}, status_code=400)
+        return JSONResponse(
+            {"error": f"Reference audio not found: {ref_audio}"}, status_code=400
+        )
 
     kwargs: dict[str, Any] = {
-        "text":                  text,
-        "language":              _string_value(language),
-        "ref_audio":             ref_audio,
-        "ref_text":              _string_value(ref_text, os.environ.get("OMNIVOICE_REF_TEXT")),
-        "instruct":              _string_value(instruct, os.environ.get("OMNIVOICE_INSTRUCT")),
-        "num_step":              _int_value(num_step, _env_int("OMNIVOICE_NUM_STEP", 32)),
-        "guidance_scale":        _float_value(guidance_scale, _env_float("OMNIVOICE_GUIDANCE_SCALE", 2.0)),
-        "speed":                 _float_value(speed, _env_float("OMNIVOICE_SPEED", 0.92)),
-        "duration":              _float_value(duration, _env_float("OMNIVOICE_DURATION", None)),
-        "t_shift":               _float_value(t_shift, _env_float("OMNIVOICE_T_SHIFT", 0.1)),
-        "denoise":               _bool(denoise, _env_bool("OMNIVOICE_DENOISE", True)),
-        "postprocess_output":    _bool(postprocess_output, _env_bool("OMNIVOICE_POSTPROCESS_OUTPUT", True)),
-        "layer_penalty_factor":  _float_value(layer_penalty_factor, _env_float("OMNIVOICE_LAYER_PENALTY_FACTOR", 5.0)),
-        "position_temperature":  _float_value(position_temperature, _env_float("OMNIVOICE_POSITION_TEMPERATURE", 5.0)),
-        "class_temperature":     _float_value(class_temperature, _env_float("OMNIVOICE_CLASS_TEMPERATURE", 0.0)),
+        "text": text,
+        "language": _string_value(language),
+        "ref_audio": ref_audio,
+        "ref_text": _string_value(ref_text, os.environ.get("OMNIVOICE_REF_TEXT")),
+        "instruct": _string_value(instruct, os.environ.get("OMNIVOICE_INSTRUCT")),
     }
+    kwargs.update(
+        _generation_options(
+            num_step,
+            guidance_scale,
+            speed,
+            duration,
+            t_shift,
+            denoise,
+            postprocess_output,
+            layer_penalty_factor,
+            position_temperature,
+            class_temperature,
+        )
+    )
 
     ref_audio_for_prompt = None
     ref_text_for_prompt = None
@@ -257,14 +279,18 @@ async def synthesize_batch(
         return JSONResponse({"error": f"Invalid items JSON: {exc}"}, status_code=400)
 
     if not isinstance(parsed_items, list) or not parsed_items:
-        return JSONResponse({"error": "items must be a non-empty array"}, status_code=400)
+        return JSONResponse(
+            {"error": "items must be a non-empty array"}, status_code=400
+        )
 
     texts = []
     languages = []
     for idx, item in enumerate(parsed_items):
         text = str(item.get("text", "")).strip() if isinstance(item, dict) else ""
         if not text:
-            return JSONResponse({"error": f"Missing text for item {idx}"}, status_code=400)
+            return JSONResponse(
+                {"error": f"Missing text for item {idx}"}, status_code=400
+            )
         texts.append(text)
         item_language = item.get("language") if isinstance(item, dict) else None
         languages.append(_string_value(item_language, _string_value(language)))
@@ -273,23 +299,29 @@ async def synthesize_batch(
     ref_audio = upload_path or _string_value(os.environ.get("OMNIVOICE_REF_AUDIO"))
     if ref_audio and not os.path.exists(ref_audio):
         _remove(upload_path)
-        return JSONResponse({"error": f"Reference audio not found: {ref_audio}"}, status_code=400)
+        return JSONResponse(
+            {"error": f"Reference audio not found: {ref_audio}"}, status_code=400
+        )
 
     kwargs: dict[str, Any] = {
-        "text":                  texts,
-        "language":              languages,
-        "instruct":              _string_value(instruct, os.environ.get("OMNIVOICE_INSTRUCT")),
-        "num_step":              _int_value(num_step, _env_int("OMNIVOICE_NUM_STEP", 32)),
-        "guidance_scale":        _float_value(guidance_scale, _env_float("OMNIVOICE_GUIDANCE_SCALE", 2.0)),
-        "speed":                 _float_value(speed, _env_float("OMNIVOICE_SPEED", 0.92)),
-        "duration":              _float_value(duration, _env_float("OMNIVOICE_DURATION", None)),
-        "t_shift":               _float_value(t_shift, _env_float("OMNIVOICE_T_SHIFT", 0.1)),
-        "denoise":               _bool(denoise, _env_bool("OMNIVOICE_DENOISE", True)),
-        "postprocess_output":    _bool(postprocess_output, _env_bool("OMNIVOICE_POSTPROCESS_OUTPUT", True)),
-        "layer_penalty_factor":  _float_value(layer_penalty_factor, _env_float("OMNIVOICE_LAYER_PENALTY_FACTOR", 5.0)),
-        "position_temperature":  _float_value(position_temperature, _env_float("OMNIVOICE_POSITION_TEMPERATURE", 5.0)),
-        "class_temperature":     _float_value(class_temperature, _env_float("OMNIVOICE_CLASS_TEMPERATURE", 0.0)),
+        "text": texts,
+        "language": languages,
+        "instruct": _string_value(instruct, os.environ.get("OMNIVOICE_INSTRUCT")),
     }
+    kwargs.update(
+        _generation_options(
+            num_step,
+            guidance_scale,
+            speed,
+            duration,
+            t_shift,
+            denoise,
+            postprocess_output,
+            layer_penalty_factor,
+            position_temperature,
+            class_temperature,
+        )
+    )
 
     try:
         QUEUE.acquire()
@@ -301,7 +333,9 @@ async def synthesize_batch(
                 )
                 kwargs["instruct"] = None
             audios = MODEL.generate(**kwargs)
-        return JSONResponse({"items": [{"audio": _wav_base64(audio)} for audio in audios]})
+        return JSONResponse(
+            {"items": [{"audio": _wav_base64(audio)} for audio in audios]}
+        )
     finally:
         QUEUE.release()
         _remove(upload_path)
