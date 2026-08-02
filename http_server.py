@@ -22,6 +22,7 @@ from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from omnivoice import OmniVoice
+from omnivoice.models.omnivoice_flashinfer import apply_flashinfer
 from omnivoice.utils.common import get_best_device
 
 
@@ -45,7 +46,9 @@ def _dtype() -> torch.dtype:
     return torch.float16 if DEVICE.startswith(("cuda", "xpu", "mps")) else torch.float32
 
 
-MODEL = OmniVoice.from_pretrained(MODEL_ID, device_map=DEVICE, dtype=_dtype())
+MODEL = apply_flashinfer(
+    OmniVoice.from_pretrained(MODEL_ID, device_map=DEVICE, dtype=_dtype())
+)
 MODEL_LOCK = Lock()
 QUEUE = Semaphore(int(os.environ.get("OMNIVOICE_WORKER_BACKLOG", "1")))
 PROMPT_CACHE = TTLCache(
@@ -158,6 +161,7 @@ async def health():
         "ok": True,
         "model": MODEL_ID,
         "device": DEVICE,
+        "acceleration": "flashinfer",
         "prompt_cache": {
             "size": len(PROMPT_CACHE),
             "maxsize": PROMPT_CACHE.maxsize,
