@@ -549,6 +549,12 @@ wheels = [
 ]
 
 [[package]]
+name = "docopt"
+version = "0.6.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a2/55/8f8cab2afd404cf578136ef2cc5dfb50baa1761b68c9da1fb1e4eed343c9/docopt-0.6.2.tar.gz", hash = "sha256:49b3a825280bd66b3aa83585ef59c4a8c82f2c8a522dbe754a8bc8d08c85c491", size = 25901, upload-time = "2014-06-16T11:18:57.406Z" }
+
+[[package]]
 name = "editdistance"
 version = "0.8.1"
 source = { registry = "https://pypi.org/simple" }
@@ -857,6 +863,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/6f/6d/0703ccc57f3a7233505399edb88de3cbd678da106337b9fcde432b65ed60/idna-3.11.tar.gz", hash = "sha256:795dafcc9c04ed0c1fb032c2aa73654d8e8c5023a7df64a53f39190ada629902", size = 194582, upload-time = "2025-10-12T14:55:20.501Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/0e/61/66938bbb5fc52dbdf84594873d5b51fb1f7c7794e9c0f5bd885f30bc507b/idna-3.11-py3-none-any.whl", hash = "sha256:771a87f49d9defaf64091e6e6fe9c18d4833f140bd19464795bc32d966ca37ea", size = 71008, upload-time = "2025-10-12T14:55:18.883Z" },
+]
+
+[[package]]
+name = "importlib-resources"
+version = "7.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e4/06/b56dfa750b44e86157093bc8fca0ab81dccbf5260510de4eaf1cb69b5b99/importlib_resources-7.1.0.tar.gz", hash = "sha256:0722d4c6212489c530f2a145a34c0a7a3b4721bc96a15fada5930e2a0b760708", size = 44985, upload-time = "2026-04-12T16:36:09.232Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8a/db/55a262f3606bebcae07cc14095338471ad7c0bbcaa37707e6f0ee49725b7/importlib_resources-7.1.0-py3-none-any.whl", hash = "sha256:1bd7b48b4088eddb2cd16382150bb515af0bd2c70128194392725f82ad2c96a1", size = 37232, upload-time = "2026-04-12T16:36:08.219Z" },
 ]
 
 [[package]]
@@ -1234,6 +1249,18 @@ wheels = [
 ]
 
 [[package]]
+name = "num2words"
+version = "0.5.14"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "docopt" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f6/58/ad645bd38b4b648eb2fc2ba1b909398e54eb0cbb6a7dbd2b4953e38c9621/num2words-0.5.14.tar.gz", hash = "sha256:b066ec18e56b6616a3b38086b5747daafbaa8868b226a36127e0451c0cf379c6", size = 218213, upload-time = "2024-12-17T20:17:10.191Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d6/5b/545e9267a1cc080c8a1be2746113a063e34bcdd0f5173fd665a5c13cb234/num2words-0.5.14-py3-none-any.whl", hash = "sha256:1c8e5b00142fc2966fd8d685001e36c4a9911e070d1b120e1beb721fa1edb33d", size = 163525, upload-time = "2024-12-17T20:17:06.074Z" },
+]
+
+[[package]]
 name = "numba"
 version = "0.64.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1562,7 +1589,7 @@ wheels = [
 
 [[package]]
 name = "omnivoice"
-version = "0.1.5"
+version = "0.2.1"
 source = { editable = "." }
 dependencies = [
     { name = "accelerate" },
@@ -1591,6 +1618,10 @@ eval = [
     { name = "zhconv" },
     { name = "zhon" },
 ]
+tn = [
+    { name = "num2words" },
+    { name = "wetextprocessing" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -1600,6 +1631,7 @@ requires-dist = [
     { name = "gradio" },
     { name = "jiwer", marker = "extra == 'eval'", specifier = "==3.1.0" },
     { name = "librosa" },
+    { name = "num2words", marker = "extra == 'tn'" },
     { name = "numpy" },
     { name = "pydub" },
     { name = "s3prl", marker = "extra == 'eval'" },
@@ -1612,10 +1644,11 @@ requires-dist = [
     { name = "transformers", specifier = ">=5.3.0" },
     { name = "unidecode", marker = "extra == 'eval'" },
     { name = "webdataset" },
+    { name = "wetextprocessing", marker = "extra == 'tn'" },
     { name = "zhconv", marker = "extra == 'eval'" },
     { name = "zhon", marker = "extra == 'eval'" },
 ]
-provides-extras = ["eval"]
+provides-extras = ["tn", "eval"]
 
 [[package]]
 name = "orjson"
@@ -2213,6 +2246,23 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/b0/77/a5b8c569bf593b0140bde72ea885a803b82086995367bf2037de0159d924/pygments-2.19.2.tar.gz", hash = "sha256:636cb2477cec7f8952536970bc533bc43743542f70392ae026374600add5b887", size = 4968631, upload-time = "2025-06-21T13:39:12.283Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c7/21/705964c7812476f378728bdf590ca4b771ec72385c533964653c68e86bdc/pygments-2.19.2-py3-none-any.whl", hash = "sha256:86540386c03d588bb81d44bc3928634ff26449851e99741617ecb9037ee5ec0b", size = 1225217, upload-time = "2025-06-21T13:39:07.939Z" },
+]
+
+[[package]]
+name = "pynini"
+version = "2.1.7"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/c6/b6/09a0efe843df37d9c80a9a1c190c7bb28d8920cee401e2a61c46f1328ec1/pynini-2.1.7.tar.gz", hash = "sha256:fc06cc02adcbd4b14eb94ae9f2a0949d110612d2d4ee3a7ac5dc97b45fff8e33", size = 789771, upload-time = "2025-09-04T22:15:39.628Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b0/20/fd233d658ce68b335ba6387dbc9497288c00b13d1bd54f47156bf785948d/pynini-2.1.7-cp310-cp310-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:644f75b67a591f668b26318b6d98514a85be5264b4117f50f358901e4513c901", size = 165420949, upload-time = "2025-09-04T22:05:41.092Z" },
+    { url = "https://files.pythonhosted.org/packages/62/4b/d3a90b0355e28bcd28e4377b9d2b536884de9ae9aa74a78886971467a8dd/pynini-2.1.7-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:d078331bf24d2f46d3ff8940f558b88ce059ad72a37c0019b0411b03a136d986", size = 165557802, upload-time = "2025-09-04T22:05:48.195Z" },
+    { url = "https://files.pythonhosted.org/packages/ef/16/8624f73412f4571517dc97e027c6b73db849c7c649aad70aa2dd168834a1/pynini-2.1.7-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:574985fb1cae220ac96caa30476d764fe6d8991cc4f378d83e276591118eb10a", size = 165508989, upload-time = "2025-09-04T22:05:54.495Z" },
+    { url = "https://files.pythonhosted.org/packages/a9/9b/dcbf23733cd57a86dc4aa425aba2a4efff301acf152e50065c232449ade6/pynini-2.1.7-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:764ae36dd9f3480e88c4d4046d108a74c4923510d0aa93062debfe1f742b356f", size = 165495070, upload-time = "2025-09-04T22:06:00.483Z" },
+    { url = "https://files.pythonhosted.org/packages/88/c2/d47eae721b2ac558d72c61250ee64918cff453e40d5c02db53ec21983ef9/pynini-2.1.7-cp313-cp313t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:a7e59fc8ac5eed9234f9d394e882bd7048808590e15abcce5ce03662b8e5ea79", size = 165409045, upload-time = "2025-09-04T22:06:08.351Z" },
+    { url = "https://files.pythonhosted.org/packages/27/23/74fb65f0cdd345b8b186f80a3bdd318e93906b572cd82721a16bee9b1eaa/pynini-2.1.7-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:aaf2171cf5d744961d1080a680f1725807b4d179588a6ad3135596c2e0e06bc0", size = 165463702, upload-time = "2025-09-04T22:06:17.204Z" },
+    { url = "https://files.pythonhosted.org/packages/61/41/fd9c867fbe1a9141ea57a59e6a8b087ba88f19e97bd46b39dcf77ed00ecb/pynini-2.1.7-cp314-cp314t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:2bb5de3d52056a228dd48a6d027fc279f0c94a11f28bc43b79c43a1624ec032d", size = 165404717, upload-time = "2025-09-04T22:06:23.494Z" },
+    { url = "https://files.pythonhosted.org/packages/a1/e5/3b37743563f9b63101de6cf7c66bb895767f38dc47970ec9545a60740693/pynini-2.1.7-pp310-pypy310_pp73-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:64403cb3fe1ca265a74688ba35fb294ed38eb8c7645c109e24225befcf9b0dee", size = 100613739, upload-time = "2025-09-04T22:06:34.979Z" },
+    { url = "https://files.pythonhosted.org/packages/5e/19/3a97b5eb33ea23e8e918957ddffd2c5d08582a7aef0abdd9fcdaba3143b1/pynini-2.1.7-pp311-pypy311_pp73-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:9ac00901ad876f684dc7d3f57057545e9a064149f3e87ff2dd08b38ab1dc0f90", size = 100623057, upload-time = "2025-09-04T22:06:39.644Z" },
 ]
 
 [[package]]
@@ -3461,6 +3511,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/5a/3a/68800d92e065cf4750ebecf973b13979c0c929b439e1293012938862038d/webdataset-1.0.2.tar.gz", hash = "sha256:7f0498be827cfa46cc5430a58768a24e2c6a410676a61be1838f53d61afdaab4", size = 80090, upload-time = "2025-06-19T23:26:21.945Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d9/00/aca6beb3658dab4ed3dbb41a78e6e7f31342e0b41d28088f205525751601/webdataset-1.0.2-py3-none-any.whl", hash = "sha256:3dbfced32b25c0d199c6b9787937b6f85742bc3c84f652c846893075c1c082d9", size = 74956, upload-time = "2025-06-19T23:26:20.354Z" },
+]
+
+[[package]]
+name = "wetextprocessing"
+version = "1.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "importlib-resources" },
+    { name = "pynini" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ec/86/5af15ef13257f8fc223c392c3b4bfa0232e26bd52031c17ddd94661f5042/wetextprocessing-1.2.0.tar.gz", hash = "sha256:8f00a446920b198a4b698a44e14fa7c011d19d1197465cf2383e990c92c355d5", size = 1997204, upload-time = "2026-06-10T03:49:59.096Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d9/81/351722ec61dbdf96cca59edac14ce620be273fa98a9fab9e1a2aa524c3e1/wetextprocessing-1.2.0-py3-none-any.whl", hash = "sha256:2c7c1e048ede69b67e8a0921093c08a591bc9d7566ad70f5343686196f97aea9", size = 2012397, upload-time = "2026-06-10T03:49:57.359Z" },
 ]
 
 [[package]]

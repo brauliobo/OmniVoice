@@ -185,6 +185,7 @@ async def _exception_handler(_request: Request, exc: Exception):
 async def synthesize(
     text: str = Form(...),
     language: str = Form("en"),
+    normalize_text: str | None = Form("true"),
     audio: UploadFile | None = File(None),
     ref_text: str | None = Form(None),
     instruct: str | None = Form(None),
@@ -213,6 +214,7 @@ async def synthesize(
     kwargs: dict[str, Any] = {
         "text": text,
         "language": _string_value(language),
+        "normalize_text": _bool(normalize_text) if normalize_text is not None else False,
         "ref_audio": ref_audio,
         "ref_text": _string_value(ref_text, os.environ.get("OMNIVOICE_REF_TEXT")),
         "instruct": _string_value(instruct, os.environ.get("OMNIVOICE_INSTRUCT")),
@@ -263,6 +265,7 @@ async def synthesize(
 async def synthesize_batch(
     items: str = Form(...),
     language: str = Form("en"),
+    normalize_text: str | None = Form("true"),
     audio: UploadFile | None = File(None),
     ref_text: str | None = Form(None),
     instruct: str | None = Form(None),
@@ -310,6 +313,7 @@ async def synthesize_batch(
     kwargs: dict[str, Any] = {
         "text": texts,
         "language": languages,
+        "normalize_text": _bool(normalize_text) if normalize_text is not None else False,
         "instruct": _string_value(instruct, os.environ.get("OMNIVOICE_INSTRUCT")),
     }
     kwargs.update(
