@@ -239,7 +239,6 @@ async def synthesize(
     if kwargs["ref_audio"]:
         ref_audio_for_prompt = kwargs.pop("ref_audio")
         ref_text_for_prompt = kwargs.pop("ref_text")
-        kwargs["instruct"] = None
 
     try:
         QUEUE.acquire()
@@ -339,7 +338,6 @@ async def synthesize_batch(
                     ref_audio,
                     _string_value(ref_text, os.environ.get("OMNIVOICE_REF_TEXT")),
                 )
-                kwargs["instruct"] = None
             audios = MODEL.generate(**kwargs)
         return JSONResponse(
             {"items": [{"audio": _wav_base64(audio)} for audio in audios]}
