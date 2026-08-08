@@ -18,9 +18,9 @@
 """Language name to ISO 639-3 code mapping.
 
 Auto-generated from ``docs/lang_id_name_map.tsv``. Provides ``LANG_NAME_TO_ID``
-(for resolving language names to codes) and ``LANG_IDS`` (the set of supported
-ISO 639-3 codes). Used by ``OmniVoice.generate()`` to resolve user-provided
-language names.
+(for resolving language names to codes), ``LANGUAGE_ALIASES`` (common public
+aliases), and ``LANG_IDS`` (the set of supported ISO 639-3 codes). Used by
+``OmniVoice.generate()`` to resolve user-provided language names.
 """
 
 # Auto-generated from docs/lang_id_name_map.tsv
@@ -677,6 +677,11 @@ LANG_NAME_TO_ID = {
 
 LANG_NAMES = set(LANG_NAME_TO_ID.keys())
 LANG_IDS = set(LANG_NAME_TO_ID.values())
+
+# Common public aliases that map to the model's canonical language IDs.
+LANGUAGE_ALIASES = {
+    "ar": "arb",
+}
 
 # Exceptions where .title() doesn't match the canonical casing from the TSV.
 _TITLE_EXCEPTIONS = {

@@ -93,5 +93,11 @@ _INSTRUCT_ALL_VALID = (
     | _INSTRUCT_MUTUALLY_EXCLUSIVE[-1]  # dialects
 )
 
+# Language-specific aliases that have no corresponding model voice attribute.
+_INSTRUCT_ALIASES = {
+    "ar accent": None,
+    "arabic accent": None,
+}
+
 _INSTRUCT_VALID_EN = frozenset(i for i in _INSTRUCT_ALL_VALID if not _ZH_RE.search(i))
 _INSTRUCT_VALID_ZH = frozenset(i for i in _INSTRUCT_ALL_VALID if _ZH_RE.search(i))

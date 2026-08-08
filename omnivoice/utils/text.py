@@ -307,8 +307,14 @@ def _resolve_lang_code(language: Optional[str], text: str) -> str:
             if code in ("zh", "en"):
                 return code
             try:
-                from omnivoice.utils.lang_map import LANG_IDS, LANG_NAME_TO_ID
+                from omnivoice.utils.lang_map import (
+                    LANGUAGE_ALIASES,
+                    LANG_IDS,
+                    LANG_NAME_TO_ID,
+                )
 
+                if code in LANGUAGE_ALIASES:
+                    return LANGUAGE_ALIASES[code]
                 if code in LANG_IDS:
                     return code
                 if code in LANG_NAME_TO_ID:

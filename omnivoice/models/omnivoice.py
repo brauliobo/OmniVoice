@@ -68,7 +68,7 @@ from omnivoice.utils.audio import (
     trim_long_audio,
 )
 from omnivoice.utils.duration import RuleDurationEstimator
-from omnivoice.utils.lang_map import LANG_IDS, LANG_NAMES
+from omnivoice.utils.lang_map import LANGUAGE_ALIASES, LANG_IDS, LANG_NAMES
 from omnivoice.utils.text import (
     add_punctuation,
     chunk_text_punctuation,
@@ -76,6 +76,7 @@ from omnivoice.utils.text import (
 )
 from omnivoice.utils.voice_design import (
     _INSTRUCT_ALL_VALID,
+    _INSTRUCT_ALIASES,
     _INSTRUCT_EN_TO_ZH,
     _INSTRUCT_MUTUALLY_EXCLUSIVE,
     _INSTRUCT_VALID_EN,
@@ -1470,13 +1471,15 @@ def _mask_mod_packed(document_ids, b, h, q_idx, kv_idx):
 
 
 def _resolve_language(language: Optional[str]) -> Union[str, None]:
-    from omnivoice.utils.lang_map import LANG_IDS, LANG_NAME_TO_ID
+    from omnivoice.utils.lang_map import LANGUAGE_ALIASES, LANG_IDS, LANG_NAME_TO_ID
 
     if language is None or language.lower() == "none":
         return None
     if language in LANG_IDS:
         return language
     key = language.lower()
+    if key in LANGUAGE_ALIASES:
+        return LANGUAGE_ALIASES[key]
     if key in LANG_NAME_TO_ID:
         return LANG_NAME_TO_ID[key]
     logger.warning(
@@ -1549,6 +1552,10 @@ def _resolve_instruct(
     normalised = []
     for raw in raw_items:
         n = raw.strip().lower()
+        if n in _INSTRUCT_ALIASES:
+            n = _INSTRUCT_ALIASES[n]
+            if n is None:
+                continue
         if n in _INSTRUCT_ALL_VALID:
             normalised.append(n)
         else:
@@ -1575,6 +1582,9 @@ def _resolve_instruct(
             "comma (e.g. '男，河南话')."
         )
         raise ValueError(err)
+
+    if not normalised:
+        return None
 
     # --- Language consistency: dialect forces Chinese, accent forces English ---
     has_dialect = any(n.endswith("话") for n in normalised)
