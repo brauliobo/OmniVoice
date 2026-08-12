@@ -42,6 +42,7 @@ dependencies = [
     "soundfile",
     "librosa",
     "cachetools",
+    "setproctitle>=1.3.6",
 ]
 
 [project.optional-dependencies]

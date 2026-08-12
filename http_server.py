@@ -10,9 +10,13 @@ import traceback
 from threading import Lock, Semaphore
 from typing import Any
 
+import setproctitle
+
 os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
 os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+gpu = os.environ.get("CUDA_VISIBLE_DEVICES", "?")
+setproctitle.setproctitle(f"omnivoice-gpu{gpu}")
 
 import numpy as np
 import soundfile as sf
