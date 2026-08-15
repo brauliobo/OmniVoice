@@ -106,18 +106,13 @@ def _fi_attention_module_forward(
     (read from _CTX, set per generation / baked per graph)."""
     s = hidden_states.shape[1]
     x = hidden_states[0]  # (S, hidden)
-    if getattr(self, "_fi_w_qkv", None) is not None:
-        qkv = F.linear(x, self._fi_w_qkv)
-        q, k, v = qkv.split(self._fi_qkv_split, dim=-1)
-        # split views are strided; reshape materializes contiguous copies
-        # (q/k would be copied inside the fused rmsnorm anyway)
-        q = self.q_norm(q.reshape(s, -1, self.head_dim))
-        k = self.k_norm(k.reshape(s, -1, self.head_dim))
-        v = v.reshape(s, -1, self.head_dim)
-    else:
-        q = self.q_norm(self.q_proj(x).view(s, -1, self.head_dim))
-        k = self.k_norm(self.k_proj(x).view(s, -1, self.head_dim))
-        v = self.v_proj(x).view(s, -1, self.head_dim)
+    qkv = F.linear(x, self._fi_w_qkv)
+    q, k, v = qkv.split(self._fi_qkv_split, dim=-1)
+    # split views are strided; reshape materializes contiguous copies
+    # (q/k would be copied inside the fused rmsnorm anyway)
+    q = self.q_norm(q.reshape(s, -1, self.head_dim))
+    k = self.k_norm(k.reshape(s, -1, self.head_dim))
+    v = v.reshape(s, -1, self.head_dim)
     flashinfer.rope.apply_rope_pos_ids_inplace(
         q, k, _CTX["pos_ids"], rope_theta=self._fi_rope_theta, interleave=False
     )
@@ -146,20 +141,21 @@ def _fi_attention_module_forward(
     return self.o_proj(out.reshape(s, -1)).unsqueeze(0), None
 
 
-def _patch_attention_forward(llm, fuse_qkv=True):
+def _patch_attention_forward(llm):
     theta = llm.config.rope_parameters["rope_theta"]
     for layer in llm.layers:
         attn = layer.self_attn
         attn._fi_rope_theta = theta
-        if fuse_qkv:
-            attn._fi_w_qkv = torch.cat(
-                [attn.q_proj.weight, attn.k_proj.weight, attn.v_proj.weight], dim=0
-            )
-            attn._fi_qkv_split = [
-                attn.q_proj.weight.shape[0],
-                attn.k_proj.weight.shape[0],
-                attn.v_proj.weight.shape[0],
-            ]
+        projections = (attn.q_proj, attn.k_proj, attn.v_proj)
+        attn._fi_qkv_split = [projection.weight.shape[0] for projection in projections]
+        attn.register_buffer(
+            "_fi_w_qkv",
+            torch.cat(
+                [projection.weight for projection in projections], dim=0
+            ).detach(),
+            persistent=False,
+        )
+        del attn.q_proj, attn.k_proj, attn.v_proj
         attn.forward = MethodType(_fi_attention_module_forward, attn)
 
 
@@ -174,7 +170,12 @@ def _fi_mlp_forward(self, x):
 def _patch_mlp(llm):
     for layer in llm.layers:
         mlp = layer.mlp
-        mlp._fi_w_gate_up = torch.cat([mlp.gate_proj.weight, mlp.up_proj.weight], dim=0)
+        mlp.register_buffer(
+            "_fi_w_gate_up",
+            torch.cat([mlp.gate_proj.weight, mlp.up_proj.weight], dim=0).detach(),
+            persistent=False,
+        )
+        del mlp.gate_proj, mlp.up_proj
         mlp.forward = MethodType(_fi_mlp_forward, mlp)
 
 

@@ -35,6 +35,8 @@ DEBUG_MODE = os.environ.get("DEBUG", "0") == "1"
 
 MODEL_ID = os.environ.get("TTS_MODEL_ID", "k2-fsa/OmniVoice")
 DEVICE = os.environ.get("OMNIVOICE_DEVICE") or get_best_device()
+AUDIO_CHUNK_DURATION = float(os.environ.get("OMNIVOICE_AUDIO_CHUNK_DURATION", "12"))
+AUDIO_CHUNK_THRESHOLD = float(os.environ.get("OMNIVOICE_AUDIO_CHUNK_THRESHOLD", "20"))
 
 torch.set_num_threads(int(os.environ.get("TTS_TORCH_THREADS", "1")))
 try:
@@ -83,8 +85,13 @@ def _generation_options(
     layer_penalty_factor: str | None,
     position_temperature: str | None,
     class_temperature: str | None,
+    audio_chunk_duration: str | None,
+    audio_chunk_threshold: str | None,
 ) -> dict[str, Any]:
-    options = {}
+    options = {
+        "audio_chunk_duration": AUDIO_CHUNK_DURATION,
+        "audio_chunk_threshold": AUDIO_CHUNK_THRESHOLD,
+    }
     values = {
         "num_step": num_step,
         "guidance_scale": guidance_scale,
@@ -96,6 +103,8 @@ def _generation_options(
         "layer_penalty_factor": layer_penalty_factor,
         "position_temperature": position_temperature,
         "class_temperature": class_temperature,
+        "audio_chunk_duration": audio_chunk_duration,
+        "audio_chunk_threshold": audio_chunk_threshold,
     }
     converters = {
         "num_step": int,
@@ -165,7 +174,15 @@ async def health():
         "ok": True,
         "model": MODEL_ID,
         "device": DEVICE,
+        "dtype": str(MODEL.dtype).removeprefix("torch."),
+        "audio_tokenizer_dtype": str(MODEL.audio_tokenizer.dtype).removeprefix(
+            "torch."
+        ),
         "acceleration": "flashinfer",
+        "generation_defaults": {
+            "audio_chunk_duration": AUDIO_CHUNK_DURATION,
+            "audio_chunk_threshold": AUDIO_CHUNK_THRESHOLD,
+        },
         "prompt_cache": {
             "size": len(PROMPT_CACHE),
             "maxsize": PROMPT_CACHE.maxsize,
@@ -203,6 +220,8 @@ async def synthesize(
     layer_penalty_factor: str | None = Form(None),
     position_temperature: str | None = Form(None),
     class_temperature: str | None = Form(None),
+    audio_chunk_duration: str | None = Form(None),
+    audio_chunk_threshold: str | None = Form(None),
 ):
     if not text.strip():
         return JSONResponse({"error": "Missing text"}, status_code=400)
@@ -235,6 +254,8 @@ async def synthesize(
             layer_penalty_factor,
             position_temperature,
             class_temperature,
+            audio_chunk_duration,
+            audio_chunk_threshold,
         )
     )
 
@@ -282,6 +303,8 @@ async def synthesize_batch(
     layer_penalty_factor: str | None = Form(None),
     position_temperature: str | None = Form(None),
     class_temperature: str | None = Form(None),
+    audio_chunk_duration: str | None = Form(None),
+    audio_chunk_threshold: str | None = Form(None),
 ):
     try:
         parsed_items = json.loads(items)
@@ -331,6 +354,8 @@ async def synthesize_batch(
             layer_penalty_factor,
             position_temperature,
             class_temperature,
+            audio_chunk_duration,
+            audio_chunk_threshold,
         )
     )
 

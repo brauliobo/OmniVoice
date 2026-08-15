@@ -363,7 +363,9 @@ class OmniVoice(PreTrainedModel):
                     "cpu" if str(model.device).startswith("mps") else model.device
                 )
                 model.audio_tokenizer = HiggsAudioV2TokenizerModel.from_pretrained(
-                    audio_tokenizer_path, device_map=tokenizer_device
+                    audio_tokenizer_path,
+                    device_map=tokenizer_device,
+                    dtype=model.dtype,
                 )
                 model.feature_extractor = AutoFeatureExtractor.from_pretrained(
                     audio_tokenizer_path
@@ -818,7 +820,10 @@ class OmniVoice(PreTrainedModel):
         clip_size = int(ref_wav.shape[-1] % chunk_size)
         ref_wav = ref_wav[:, :-clip_size] if clip_size > 0 else ref_wav
         # numpy → torch at tokenizer boundary
-        ref_wav_tensor = torch.from_numpy(ref_wav).to(self.audio_tokenizer.device)
+        ref_wav_tensor = torch.from_numpy(ref_wav).to(
+            device=self.audio_tokenizer.device,
+            dtype=self.audio_tokenizer.dtype,
+        )
         ref_audio_tokens = self.audio_tokenizer.encode(
             ref_wav_tensor.unsqueeze(0),
         ).audio_codes.squeeze(0)  # (C, T)
