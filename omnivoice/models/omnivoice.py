@@ -362,10 +362,11 @@ class OmniVoice(PreTrainedModel):
                 tokenizer_device = (
                     "cpu" if str(model.device).startswith("mps") else model.device
                 )
+                # FP16 encode/decode can produce non-finite audio.
                 model.audio_tokenizer = HiggsAudioV2TokenizerModel.from_pretrained(
                     audio_tokenizer_path,
                     device_map=tokenizer_device,
-                    dtype=model.dtype,
+                    dtype=torch.float32,
                 )
                 model.feature_extractor = AutoFeatureExtractor.from_pretrained(
                     audio_tokenizer_path

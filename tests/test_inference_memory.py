@@ -111,7 +111,7 @@ class InferenceMemoryTest(unittest.TestCase):
         self.assertEqual(layer.self_attn._fi_w_qkv.dtype, torch.float64)
         self.assertEqual(layer.mlp._fi_w_gate_up.dtype, torch.float64)
 
-    def test_audio_tokenizer_receives_effective_model_dtype(self):
+    def test_audio_tokenizer_stays_float32_with_half_precision_model(self):
         from omnivoice.models.omnivoice import OmniVoice
 
         model = types.SimpleNamespace(
@@ -150,7 +150,7 @@ class InferenceMemoryTest(unittest.TestCase):
         load_audio_tokenizer.assert_called_once_with(
             str(Path(checkpoint, "audio_tokenizer")),
             device_map=torch.device("cuda:0"),
-            dtype=torch.float16,
+            dtype=torch.float32,
         )
 
 
